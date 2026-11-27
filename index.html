@@ -334,21 +334,21 @@
 
       const fileName = String(payload.fileName || payload.filename || 'Data_Penerima_HBIG_dan_Pemantauan.xlsx');
       const mimeType = String(payload.mimeType || payload.mime || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      const base64Data = String(rawBase64);
+      const base64Data = String(rawBase64).replace(/\s+/g, '');
 
       const bridge = getAndroidBridge();
       if (bridge && typeof bridge.saveBase64File === 'function') {
         try {
           bridge.saveBase64File(base64Data, fileName, mimeType);
-          showWrapperToast('Menyimpan ' + fileName + ' ke folder Download...');
           return true;
-        } catch (_err) {}
+        } catch (err) {
+          showWrapperToast('Gagal memanggil bridge Android: ' + (err && err.message ? err.message : ''));
+        }
       }
 
       if (window.AndroidBridge && typeof window.AndroidBridge.downloadBase64File === 'function') {
         try {
           window.AndroidBridge.downloadBase64File(base64Data, fileName, mimeType);
-          showWrapperToast('Menyimpan ' + fileName + ' ke folder Download...');
           return true;
         } catch (_err) {}
       }
@@ -363,7 +363,7 @@
         document.body.appendChild(link);
         link.click();
         setTimeout(() => {
-          document.body.removeChild(link);
+          if (link.parentNode) link.parentNode.removeChild(link);
         }, 1200);
         return true;
       } catch (_err) {

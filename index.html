@@ -50,7 +50,6 @@
       background: var(--bg);
     }
 
-    /* SPLASH SCREEN FULLSCREEN GAMBAR */
     .loading-overlay {
       position: fixed;
       inset: 0;
@@ -207,10 +206,6 @@
     };
 
     const APPS_SCRIPT_EXEC_URL = 'https://script.google.com/macros/s/AKfycbwj5x4wBc-_2RdB6prR3UD8tiHM24Lj5u0xcb6QNc3t60StIcaFCtR0zm7h0_T_XJfQsw/exec';
-    const ALLOWED_ORIGINS = [
-      'https://script.google.com',
-      'https://script.googleusercontent.com'
-    ];
 
     const iframeEl = document.getElementById('appsScriptFrame');
     const overlayEl = document.getElementById('loadingOverlay');
@@ -333,7 +328,7 @@
       if (bridge && typeof bridge.saveBase64File === 'function') {
         try {
           bridge.saveBase64File(base64Data, fileName, mimeType);
-          showWrapperToast('Mengunduh ' + fileName + ' ke penyimpanan HP...');
+          showWrapperToast('Menyimpan ' + fileName + ' ke folder Download...');
           return true;
         } catch (_err) {}
       }
@@ -341,7 +336,7 @@
       if (window.AndroidBridge && typeof window.AndroidBridge.downloadBase64File === 'function') {
         try {
           window.AndroidBridge.downloadBase64File(base64Data, fileName, mimeType);
-          showWrapperToast('Mengunduh ' + fileName + ' ke penyimpanan HP...');
+          showWrapperToast('Menyimpan ' + fileName + ' ke folder Download...');
           return true;
         } catch (_err) {}
       }
@@ -365,12 +360,14 @@
     }
 
     window.addEventListener('message', (event) => {
-      const origin = String(event.origin || '');
-      const isAllowed = ALLOWED_ORIGINS.some(allowed => origin.indexOf(allowed) === 0) ||
-        origin === window.location.origin;
-
-      if (!isAllowed) return;
-      const data = event.data;
+      let data = event.data;
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch (_e) {
+          return;
+        }
+      }
       if (!data || typeof data !== 'object') return;
 
       if (data.type === 'HBIG_DOWNLOAD_BASE64') {
@@ -393,3 +390,376 @@
   </script>
 </body>
 </html>
+```[cite: 7]
+
+---
+
+### 2. Kode Lengkap `MainActivity.kt` (Pastikan `HBIGAndroid` Selalu Tersedia)
+
+Ganti isi `MainActivity.kt` Anda dengan kode lengkap berikut agar `HBIGAndroid.saveBase64File` dan `setDownloadListener` menangani unduhan `.xlsx` / `.csv` dengan lancar:
+
+```kotlin
+package com.sibiha.monitoring
+
+import android.Manifest
+import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.ContentValues
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.os.Environment
+import android.os.Handler
+import android.os.Looper
+import android.provider.MediaStore
+import android.util.Base64
+import android.webkit.ConsoleMessage
+import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
+import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStream
+
+class MainActivity : AppCompatActivity() {
+
+    companion object {
+        private const val WRAPPER_URL = "https://tesarhamdani123.github.io/databaruHBIG/"
+    }
+
+    private lateinit var webView: WebView
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private var cameraPhotoUri: Uri? = null
+    private var pendingWebPermissionRequest: PermissionRequest? = null
+    private var pendingCameraChooserAfterPermission = false
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        val req = pendingWebPermissionRequest
+        pendingWebPermissionRequest = null
+        if (req != null) {
+            val allGranted = grants.values.all { it }
+            if (allGranted) {
+                req.grant(req.resources)
+            } else {
+                req.deny()
+            }
+        }
+
+        if (pendingCameraChooserAfterPermission) {
+            pendingCameraChooserAfterPermission = false
+            launchMediaChooser(includeCamera = true)
+        }
+    }
+
+    private val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val callback = filePathCallback
+        filePathCallback = null
+        if (callback == null) return@registerForActivityResult
+
+        if (result.resultCode != Activity.RESULT_OK) {
+            callback.onReceiveValue(null)
+            return@registerForActivityResult
+        }
+
+        val dataIntent = result.data
+        val uris = mutableListOf<Uri>()
+
+        if (dataIntent != null) {
+            val clipData = dataIntent.clipData
+            if (clipData != null && clipData.itemCount > 0) {
+                for (i in 0 until clipData.itemCount) {
+                    clipData.getItemAt(i).uri?.let { uris.add(it) }
+                }
+            } else {
+                dataIntent.data?.let { uris.add(it) }
+            }
+        }
+
+        if (uris.isEmpty() && cameraPhotoUri != null) {
+            uris.add(cameraPhotoUri!!)
+        }
+
+        callback.onReceiveValue(if (uris.isEmpty()) null else uris.toTypedArray())
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        webView = WebView(this)
+        setContentView(webView)
+
+        WebView.setWebContentsDebuggingEnabled(true)
+
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
+
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            allowFileAccess = true
+            allowContentAccess = true
+            javaScriptCanOpenWindowsAutomatically = true
+            setSupportMultipleWindows(true)
+            mediaPlaybackRequiresUserGesture = false
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            cacheMode = WebSettings.LOAD_DEFAULT
+        }
+
+        webView.addJavascriptInterface(AndroidFileBridge(), "HBIGAndroid")
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val url = request?.url ?: return false
+                val scheme = url.scheme?.lowercase() ?: return false
+                if (scheme == "http" || scheme == "https") {
+                    return false
+                }
+                if (scheme == "blob" || scheme == "data" || scheme == "about" || scheme == "javascript") {
+                    return true
+                }
+                return try {
+                    val intent = Intent(Intent.ACTION_VIEW, url)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                    true
+                } catch (_: Exception) {
+                    true
+                }
+            }
+        }
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: PermissionRequest?) {
+                if (request == null) return
+                val needsCamera = request.resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+                if (!needsCamera) {
+                    request.grant(request.resources)
+                    return
+                }
+                val hasCameraPerm = ContextCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.CAMERA
+                ) == PackageManager.PERMISSION_GRANTED
+
+                if (hasCameraPerm) {
+                    request.grant(request.resources)
+                } else {
+                    pendingWebPermissionRequest = request
+                    permissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
+                }
+            }
+
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                this@MainActivity.filePathCallback?.onReceiveValue(null)
+                this@MainActivity.filePathCallback = filePathCallback
+
+                val hasCameraPerm = ContextCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.CAMERA
+                ) == PackageManager.PERMISSION_GRANTED
+
+                if (hasCameraPerm) {
+                    launchMediaChooser(includeCamera = true)
+                } else {
+                    pendingCameraChooserAfterPermission = true
+                    permissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
+                }
+                return true
+            }
+
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                return true
+            }
+        }
+
+        webView.setDownloadListener { url, _, contentDisposition, mimeType, _ ->
+            val trimmed = url.trim()
+            if (trimmed.startsWith("data:", ignoreCase = true)) {
+                saveDataUriToDownloads(trimmed, contentDisposition, mimeType)
+            } else if (trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true)) {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(trimmed))
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                } catch (_: Exception) {
+                }
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+
+        webView.loadUrl(WRAPPER_URL)
+    }
+
+    private fun launchMediaChooser(includeCamera: Boolean) {
+        val cameraIntents = mutableListOf<Intent>()
+        cameraPhotoUri = null
+
+        if (includeCamera) {
+            val photoUri = createCameraImageUri()
+            cameraPhotoUri = photoUri
+            if (photoUri != null) {
+                val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                    putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
+                    addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                }
+                if (cameraIntent.resolveActivity(packageManager) != null) {
+                    cameraIntents.add(cameraIntent)
+                }
+            }
+        }
+
+        val galleryIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
+        }
+
+        val chooserIntent = Intent.createChooser(galleryIntent, "Pilih Kamera atau Galeri").apply {
+            if (cameraIntents.isNotEmpty()) {
+                putExtra(Intent.EXTRA_INITIAL_INTENTS, cameraIntents.toTypedArray())
+            }
+        }
+
+        try {
+            fileChooserLauncher.launch(chooserIntent)
+        } catch (_: Exception) {
+            filePathCallback?.onReceiveValue(null)
+            filePathCallback = null
+            Toast.makeText(this, "Gagal membuka kamera atau galeri", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun createCameraImageUri(): Uri? {
+        return try {
+            val imageDir = File(cacheDir, "images").apply { mkdirs() }
+            val imageFile = File.createTempFile("SIBIHA_CAM_", ".jpg", imageDir)
+            FileProvider.getUriForFile(this, "${packageName}.fileprovider", imageFile)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun saveDataUriToDownloads(dataUrl: String, contentDisposition: String?, fallbackMime: String?) {
+        try {
+            val commaIndex = dataUrl.indexOf(',')
+            if (commaIndex == -1) return
+            val meta = dataUrl.substring(5, commaIndex)
+            val base64Part = dataUrl.substring(commaIndex + 1)
+            val mime = meta.substringBefore(';').ifBlank {
+                fallbackMime ?: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }
+            val ext = if (mime.contains("csv")) "csv" else "xlsx"
+            val fileName = "Data_Penerima_HBIG_dan_Pemantauan.$ext"
+            writeBytesToDownloads(Base64.decode(base64Part, Base64.DEFAULT), fileName, mime)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Gagal menyimpan file unduhan", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun writeBytesToDownloads(bytes: ByteArray, fileName: String, mimeType: String) {
+        val safeName = fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, safeName)
+                    put(MediaStore.Downloads.MIME_TYPE, mimeType)
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+                val resolver = contentResolver
+                val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                val itemUri = resolver.insert(collection, values)
+                if (itemUri != null) {
+                    resolver.openOutputStream(itemUri)?.use { out ->
+                        out.write(bytes)
+                        out.flush()
+                    }
+                    values.clear()
+                    values.put(MediaStore.Downloads.IS_PENDING, 0)
+                    resolver.update(itemUri, values, null, null)
+                    Handler(Looper.getMainLooper()).post {
+                        Toast.makeText(this, "Tersimpan di Download: $safeName", Toast.LENGTH_LONG).show()
+                    }
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                downloadsDir.mkdirs()
+                val outFile = File(downloadsDir, safeName)
+                val out: OutputStream = FileOutputStream(outFile)
+                out.write(bytes)
+                out.flush()
+                out.close()
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(this, "Tersimpan di Download: $safeName", Toast.LENGTH_LONG).show()
+                }
+            }
+        } catch (_: Exception) {
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(this, "Gagal menyimpan file ke folder Download", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    inner class AndroidFileBridge {
+        @JavascriptInterface
+        fun saveBase64File(base64Data: String, fileName: String, mimeType: String) {
+            if (base64Data.isBlank()) {
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(this@MainActivity, "Data file Excel kosong", Toast.LENGTH_SHORT).show()
+                }
+                return
+            }
+            try {
+                val cleanBase64 = if (base64Data.contains(",")) {
+                    base64Data.substringAfter(",")
+                } else {
+                    base64Data
+                }
+                val decoded = Base64.decode(cleanBase64, Base64.DEFAULT)
+                val resolvedName = fileName.ifBlank { "Data_Penerima_HBIG_dan_Pemantauan.xlsx" }
+                val resolvedMime = mimeType.ifBlank {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                }
+                writeBytesToDownloads(decoded, resolvedName, resolvedMime)
+            } catch (_: Exception) {
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(this@MainActivity, "Gagal memproses file Excel", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+}

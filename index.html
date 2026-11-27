@@ -451,7 +451,7 @@
           } else if (typeof bridge.downloadBase64File === 'function') {
             bridge.downloadBase64File(cleanB64, fileName, mimeType);
           }
-          showWrapperToast('Menyimpan file ke perangkat: ' + fileName);
+          showWrapperToast('Menyimpan file ke Download: ' + fileName);
           return true;
         } catch (_err) {
           showWrapperToast('Bridge Android gagal, mencoba unduh standar...');
@@ -472,7 +472,7 @@
       const now = Date.now();
       Object.keys(pendingChunkDownloads).forEach(key => {
         const entry = pendingChunkDownloads[key];
-        if (!entry || now - entry.createdAt > 60000) {
+        if (!entry || now - entry.createdAt > 120000) {
           delete pendingChunkDownloads[key];
         }
       });

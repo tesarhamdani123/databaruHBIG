@@ -2,24 +2,22 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
-  />
-  <meta name="theme-color" content="#0284C7" />
-  <title>HBIG MONITORING</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>HBIG MONITORING — WebView Wrapper</title>
   <style>
     :root {
-      --bg: #EEF6FC;
       --primary: #0284C7;
       --primary-dark: #0369A1;
+      --bg: #EEF6FC;
+      --surface: #FFFFFF;
       --text: #0F172A;
       --muted: #64748B;
+      --danger: #DC2626;
+      --success: #059669;
     }
 
     * {
       box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
     }
 
     html,
@@ -30,54 +28,56 @@
       height: 100%;
       overflow: hidden;
       background: var(--bg);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    .webview-wrapper {
-      position: fixed;
-      inset: 0;
+    .wrapper-root {
+      position: relative;
       width: 100%;
       height: 100%;
-      background: var(--bg);
+      display: flex;
+      flex-direction: column;
     }
 
     #appsScriptFrame {
       width: 100%;
       height: 100%;
-      border: 0;
+      flex: 1;
+      border: none;
       display: block;
       background: var(--bg);
     }
 
-    .splash-overlay {
+    .loading-overlay {
       position: fixed;
       inset: 0;
-      z-index: 20;
+      z-index: 30;
+      background: linear-gradient(155deg, #0369A1 0%, #0284C7 60%, #38BDF8 100%);
+      color: #FFFFFF;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 24px;
       text-align: center;
-      background: linear-gradient(155deg, #0369A1 0%, #0284C7 60%, #38BDF8 100%);
-      color: #FFFFFF;
       transition: opacity 0.25s ease, visibility 0.25s ease;
     }
 
-    .splash-overlay.hidden {
+    .loading-overlay.hidden {
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
     }
 
     .spinner {
-      width: 38px;
-      height: 38px;
+      width: 42px;
+      height: 42px;
       border: 4px solid rgba(255, 255, 255, 0.28);
       border-top-color: #FFFFFF;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: spin 0.85s linear infinite;
       margin-bottom: 14px;
     }
 
@@ -85,214 +85,226 @@
       to { transform: rotate(360deg); }
     }
 
-    .splash-title {
-      font-size: 18px;
+    .loading-title {
+      font-size: 16px;
       font-weight: 800;
       margin: 0 0 6px;
-      letter-spacing: 0.3px;
     }
 
-    .splash-sub {
+    .loading-sub {
       font-size: 12px;
       opacity: 0.92;
+      max-width: 300px;
+      line-height: 1.45;
       margin: 0 0 16px;
-      max-width: 320px;
-      line-height: 1.5;
     }
 
     .btn-retry {
-      display: none;
-      border: none;
-      background: #FFFFFF;
-      color: var(--primary-dark);
-      font-weight: 800;
-      font-size: 12px;
-      padding: 10px 18px;
-      border-radius: 10px;
-      cursor: pointer;
-      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.2);
-    }
-
-    .btn-retry.show {
-      display: inline-block;
-    }
-
-    .dl-toast {
-      position: fixed;
-      left: 50%;
-      bottom: 20px;
-      transform: translateX(-50%) translateY(20px);
-      z-index: 30;
-      background: #0F172A;
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      background: rgba(255, 255, 255, 0.18);
       color: #FFFFFF;
+      padding: 9px 16px;
+      border-radius: 10px;
       font-size: 12px;
       font-weight: 700;
-      padding: 10px 16px;
+      cursor: pointer;
+    }
+
+    .btn-retry:active {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .wrapper-toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      z-index: 40;
+      background: #0F172A;
+      color: #FFFFFF;
+      padding: 9px 16px;
       border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
       opacity: 0;
       pointer-events: none;
       transition: all 0.2s ease;
       max-width: 90vw;
       text-align: center;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
     }
 
-    .dl-toast.show {
+    .wrapper-toast.show {
       opacity: 1;
       transform: translateX(-50%) translateY(0);
     }
   </style>
 </head>
 <body>
-  <div id="splashOverlay" class="splash-overlay">
-    <div class="spinner" aria-hidden="true"></div>
-    <h1 class="splash-title">HBIG MONITORING</h1>
-    <p id="splashStatus" class="splash-sub">Menghubungkan ke server aplikasi...</p>
-    <button id="btnRetry" type="button" class="btn-retry" onclick="reloadAppFrame()">
-      Muat Ulang
-    </button>
-  </div>
+  <div class="wrapper-root">
+    <div id="loadingOverlay" class="loading-overlay">
+      <div class="spinner" aria-hidden="true"></div>
+      <div class="loading-title">HBIG MONITORING</div>
+      <p id="loadingSub" class="loading-sub">Menghubungkan ke server aplikasi...</p>
+      <button type="button" id="retryBtn" class="btn-retry" style="display:none;" onclick="reloadIframe(true)">
+        Muat Ulang Aplikasi
+      </button>
+    </div>
 
-  <div class="webview-wrapper">
     <iframe
       id="appsScriptFrame"
-      title="HBIG MONITORING"
+      title="HBIG Monitoring Apps Script"
       allow="camera; microphone; geolocation; clipboard-read; clipboard-write"
-      referrerpolicy="no-referrer-when-downgrade"
+      referrerpolicy="strict-origin-when-cross-origin"
     ></iframe>
   </div>
 
-  <div id="dlToast" class="dl-toast"></div>
+  <div id="wrapperToast" class="wrapper-toast"></div>
 
   <script>
-    // GANTI URL DI BAWAH INI DENGAN URL DEPLOYMENT WEB APP GOOGLE APPS SCRIPT ANDA
-    // Contoh: 'https://script.google.com/macros/s/AKfycbx.../exec'
-    const APPS_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwj5x4wBc-_2RdB6prR3UD8tiHM24Lj5u0xcb6QNc3t60StIcaFCtR0zm7h0_T_XJfQsw/exec';
+    const APPS_SCRIPT_EXEC_URL = 'https://script.google.com/macros/s/AKfycbwj5x4wBc-_2RdB6prR3UD8tiHM24Lj5u0xcb6QNc3t60StIcaFCtR0zm7h0_T_XJfQsw/exec';
+    const ALLOWED_ORIGINS = [
+      'https://script.google.com',
+      'https://script.googleusercontent.com'
+    ];
 
-    const frameEl = document.getElementById('appsScriptFrame');
-    const splashEl = document.getElementById('splashOverlay');
-    const statusEl = document.getElementById('splashStatus');
-    const retryEl = document.getElementById('btnRetry');
-    const toastEl = document.getElementById('dlToast');
+    const iframeEl = document.getElementById('appsScriptFrame');
+    const overlayEl = document.getElementById('loadingOverlay');
+    const loadingSubEl = document.getElementById('loadingSub');
+    const retryBtnEl = document.getElementById('retryBtn');
+    const toastEl = document.getElementById('wrapperToast');
 
-    let loadTimeout_ = null;
-    let toastTimeout_ = null;
+    let loadTimeoutId = null;
+    let toastTimeoutId = null;
 
-    function showNativeToast(msg) {
+    function showWrapperToast(msg) {
       if (!toastEl) return;
       toastEl.textContent = msg;
       toastEl.classList.add('show');
-      if (toastTimeout_) clearTimeout(toastTimeout_);
-      toastTimeout_ = setTimeout(() => toastEl.classList.remove('show'), 2800);
+      if (toastTimeoutId) clearTimeout(toastTimeoutId);
+      toastTimeoutId = setTimeout(() => {
+        toastEl.classList.remove('show');
+      }, 2800);
     }
 
-    function hideSplash() {
-      if (loadTimeout_) {
-        clearTimeout(loadTimeout_);
-        loadTimeout_ = null;
+    function hideLoadingOverlay() {
+      if (loadTimeoutId) {
+        clearTimeout(loadTimeoutId);
+        loadTimeoutId = null;
       }
-      splashEl.classList.add('hidden');
-      retryEl.classList.remove('show');
-    }
-
-    function showRetryError(msg) {
-      statusEl.textContent = msg || 'Gagal memuat aplikasi. Periksa koneksi internet Anda.';
-      retryEl.classList.add('show');
-    }
-
-    function isValidWebAppUrl(url) {
-      return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/i.test(String(url || '').trim());
-    }
-
-    function reloadAppFrame() {
-      if (!isValidWebAppUrl(APPS_SCRIPT_WEBAPP_URL)) {
-        showRetryError('URL Google Apps Script belum diisi pada index.html GitHub.');
-        return;
+      if (overlayEl) {
+        overlayEl.classList.add('hidden');
       }
-
-      if (!navigator.onLine) {
-        showRetryError('Tidak ada koneksi internet. Aktifkan Wi-Fi atau data seluler.');
-        return;
-      }
-
-      retryEl.classList.remove('show');
-      statusEl.textContent = 'Memuat HBIG MONITORING...';
-      splashEl.classList.remove('hidden');
-
-      if (loadTimeout_) clearTimeout(loadTimeout_);
-      loadTimeout_ = setTimeout(() => {
-        showRetryError('Waktu tunggu habis. Silakan coba muat ulang.');
-      }, 15000);
-
-      const sep = APPS_SCRIPT_WEBAPP_URL.indexOf('?') === -1 ? '?' : '&';
-      frameEl.src = `${APPS_SCRIPT_WEBAPP_URL}${sep}_t=${Date.now()}`;
     }
 
-    frameEl.addEventListener('load', () => {
-      hideSplash();
+    function showLoadingError(message) {
+      if (!overlayEl) return;
+      overlayEl.classList.remove('hidden');
+      if (loadingSubEl) {
+        loadingSubEl.textContent = message || 'Koneksi terganggu. Periksa jaringan internet Anda.';
+      }
+      if (retryBtnEl) {
+        retryBtnEl.style.display = 'inline-block';
+      }
+    }
+
+    function buildTargetUrl() {
+      const url = new URL(APPS_SCRIPT_EXEC_URL);
+      url.searchParams.set('_wv', 'android');
+      url.searchParams.set('_ts', String(Date.now()));
+      return url.toString();
+    }
+
+    function reloadIframe(forceFresh) {
+      if (!iframeEl) return;
+      if (retryBtnEl) retryBtnEl.style.display = 'none';
+      if (loadingSubEl) loadingSubEl.textContent = 'Memuat aplikasi HBIG Monitoring...';
+      if (overlayEl) overlayEl.classList.remove('hidden');
+
+      if (loadTimeoutId) clearTimeout(loadTimeoutId);
+      loadTimeoutId = setTimeout(() => {
+        showLoadingError('Waktu muat habis. Coba muat ulang atau periksa koneksi internet.');
+      }, 20000);
+
+      iframeEl.src = forceFresh ? buildTargetUrl() : APPS_SCRIPT_EXEC_URL;
+    }
+
+    iframeEl.addEventListener('load', () => {
+      hideLoadingOverlay();
     });
 
-    frameEl.addEventListener('error', () => {
-      showRetryError('Gagal membuka halaman aplikasi.');
+    iframeEl.addEventListener('error', () => {
+      showLoadingError('Gagal memuat halaman Apps Script. Coba muat ulang.');
     });
 
-    window.addEventListener('online', () => {
-      if (!splashEl.classList.contains('hidden')) {
-        reloadAppFrame();
-      }
-    });
+    // Jembatan unduhan file (mis. Excel .xlsx / .csv) dari iframe ke Android WebView
+    function forwardFileDownloadToAndroid(payload) {
+      if (!payload || !payload.base64Data) return false;
+      const fileName = String(payload.fileName || 'Data_Penerima_HBIG_dan_Pemantauan.xlsx');
+      const mimeType = String(payload.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      const base64Data = String(payload.base64Data);
 
-    // Terima data Excel/file base64 dari Apps Script (lihat postMessage HBIG_DOWNLOAD_BASE64)
-    window.addEventListener('message', (event) => {
-      const data = event && event.data;
-      if (!data || data.type !== 'HBIG_DOWNLOAD_BASE64') return;
-
-      const fileName = String(data.fileName || 'Data_Penerima_HBIG_dan_Pemantauan.xlsx');
-      const mimeType = String(data.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      const base64Data = String(data.base64Data || '');
-
-      if (!base64Data) {
-        showNativeToast('Data file kosong, gagal mengunduh.');
-        return;
-      }
-
-      // 1. Jika dibungkus di Android Studio dengan @JavascriptInterface bernama "AndroidBridge"
-      if (
-        window.AndroidBridge &&
-        typeof window.AndroidBridge.downloadBase64File === 'function'
-      ) {
+      // 1. Jika Android menginjeksikan JavascriptInterface bernama "HBIGAndroid"
+      if (window.HBIGAndroid && typeof window.HBIGAndroid.saveBase64File === 'function') {
         try {
-          window.AndroidBridge.downloadBase64File(base64Data, fileName, mimeType);
-          showNativeToast('Mengunduh ' + fileName + ' ke folder Download...');
-          return;
+          window.HBIGAndroid.saveBase64File(base64Data, fileName, mimeType);
+          showWrapperToast('Mengunduh ' + fileName + ' ke penyimpanan HP...');
+          return true;
         } catch (_err) {}
       }
 
-      // 2. Fallback browser / WebView standar menggunakan Blob
+      // 2. Jika Android menginjeksikan JavascriptInterface alternatif bernama "AndroidBridge"
+      if (window.AndroidBridge && typeof window.AndroidBridge.downloadBase64File === 'function') {
+        try {
+          window.AndroidBridge.downloadBase64File(base64Data, fileName, mimeType);
+          showWrapperToast('Mengunduh ' + fileName + ' ke penyimpanan HP...');
+          return true;
+        } catch (_err) {}
+      }
+
+      // 3. Fallback browser/WebView via data URL (lebih kompatibel di beberapa WebView dibanding blob:)
       try {
-        const binaryStr = atob(base64Data);
-        const bytes = new Uint8Array(binaryStr.length);
-        for (let i = 0; i < binaryStr.length; i++) {
-          bytes[i] = binaryStr.charCodeAt(i);
-        }
-        const blob = new Blob([bytes], { type: mimeType });
-        const blobUrl = URL.createObjectURL(blob);
+        const dataUrl = `data:${mimeType};base64,${base64Data}`;
         const link = document.createElement('a');
-        link.href = blobUrl;
+        link.href = dataUrl;
         link.download = fileName;
         link.rel = 'noopener';
         document.body.appendChild(link);
         link.click();
         setTimeout(() => {
           document.body.removeChild(link);
-          URL.revokeObjectURL(blobUrl);
-        }, 1500);
-        showNativeToast('File diunduh: ' + fileName);
-      } catch (_e) {
-        showNativeToast('Gagal memproses file unduhan.');
+        }, 1200);
+        return true;
+      } catch (_err) {
+        return false;
+      }
+    }
+
+    window.addEventListener('message', (event) => {
+      const origin = String(event.origin || '');
+      const isAllowed = ALLOWED_ORIGINS.some(allowed => origin.indexOf(allowed) === 0) ||
+        origin === window.location.origin;
+
+      if (!isAllowed) return;
+      const data = event.data;
+      if (!data || typeof data !== 'object') return;
+
+      if (data.type === 'HBIG_DOWNLOAD_BASE64') {
+        forwardFileDownloadToAndroid(data);
+      } else if (data.type === 'HBIG_TOAST' && data.message) {
+        showWrapperToast(String(data.message));
       }
     });
 
-    window.addEventListener('DOMContentLoaded', reloadAppFrame);
+    window.addEventListener('online', () => {
+      if (overlayEl && !overlayEl.classList.contains('hidden')) {
+        reloadIframe(true);
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      reloadIframe(true);
+    });
   </script>
 </body>
 </html>

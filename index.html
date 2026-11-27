@@ -83,6 +83,10 @@
       -webkit-user-drag: none;
     }
 
+    .splash-bg-img.broken {
+      display: none;
+    }
+
     @media (orientation: landscape) and (min-width: 640px) {
       .splash-bg-img {
         object-fit: contain;
@@ -205,7 +209,7 @@
       minDisplayMs: 500
     };
 
-    const APPS_SCRIPT_EXEC_URL = 'https://script.google.com/macros/s/AKfycbwlBAUcboRpMHLE_6sWc4JPtYst_VhNszMFJxmqQmFIxdveDR6wHYGNUL6THWs9Ng8_7A/exec';
+    const APPS_SCRIPT_EXEC_URL = 'https://script.google.com/macros/s/AKfycbwj5x4wBc-_2RdB6prR3UD8tiHM24Lj5u0xcb6QNc3t60StIcaFCtR0zm7h0_T_XJfQsw/exec';
 
     const iframeEl = document.getElementById('appsScriptFrame');
     const overlayEl = document.getElementById('loadingOverlay');
@@ -220,8 +224,15 @@
     let splashShownAt = 0;
     let toastTimeoutId = null;
 
+    if (splashImgEl) {
+      splashImgEl.addEventListener('error', () => {
+        splashImgEl.classList.add('broken');
+      });
+    }
+
     function applySplashConfig() {
       if (splashImgEl && SPLASH_CONFIG.imageUrl) {
+        splashImgEl.classList.remove('broken');
         splashImgEl.src = SPLASH_CONFIG.imageUrl;
       }
       if (loadingSubEl && SPLASH_CONFIG.loadingText) {
@@ -390,13 +401,77 @@
   </script>
 </body>
 </html>
-```[cite: 16]
+```[cite: 7]
 
 ---
 
-### 2. Kode Lengkap `MainActivity.kt` untuk Android Studio
+### 2. Bagian `downloadExcel()` yang Dirapikan untuk `index` (Apps Script)
 
-Ganti seluruh isi `MainActivity.kt` dengan kode lengkap berikut (`saveBase64File` sudah diperbaiki agar tidak ada `return` di luar blok `if`):
+Tempelkan fungsi ini ke dalam blok `<script>` pada `index` (Apps Script) untuk menggantikan fungsi `downloadExcel()` sebelumnya agar tidak memicu *download* ganda di dalam *iframe* saat berjalan di Android WebView[cite: 6, 7]:
+
+```javascript
+    function hasAndroidBridge_() {
+      try {
+        return Boolean(
+          window.HBIGAndroid ||
+          (window.parent && window.parent !== window && window.parent.HBIGAndroid) ||
+          (window.top && window.top !== window && window.top.HBIGAndroid)
+        );
+      } catch (_e) {
+        return false;
+      }
+    }
+
+    function downloadExcel() {
+      const btn = document.getElementById('btnDownloadExcel');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Menyiapkan file Excel...';
+      }
+
+      const fileName = 'Data_Penerima_HBIG_dan_Pemantauan.xlsx';
+      const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const base64Xlsx = buildWorkbookBase64_();
+
+      try {
+        if (base64Xlsx) {
+          if (window.parent && window.parent !== window) {
+            try {
+              window.parent.postMessage({
+                type: 'HBIG_DOWNLOAD_BASE64',
+                base64Data: base64Xlsx,
+                fileName: fileName,
+                mimeType: mimeType
+              }, '*');
+            } catch (_e) {}
+          }
+
+          if (!hasAndroidBridge_()) {
+            const bytes = base64ToUint8Array_(base64Xlsx);
+            const blob = new Blob([bytes], { type: mimeType });
+            triggerBlobDownload_(blob, fileName);
+          }
+
+          showToast('File Excel disiapkan: ' + fileName);
+        } else {
+          downloadFallbackCsv_('Data_Penerima_HBIG_dan_Pemantauan');
+          showToast('File data terunduh (.csv)');
+        }
+      } catch (_err) {
+        downloadFallbackCsv_('Data_Penerima_HBIG_dan_Pemantauan');
+        showToast('File data terunduh (.csv)');
+      }
+
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '📥 Download Excel (.xlsx)';
+      }
+    }
+```[cite: 6, 7]
+
+---
+
+### 3. Kode Lengkap `MainActivity.kt` (Android Studio)
 
 ```kotlin
 package com.sibiha.monitoring

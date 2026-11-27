@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>SIBIHA — Sistem Informasi Bayi dan HBIG</title>
   <style>
     :root {
@@ -26,6 +26,7 @@
       padding: 0;
       width: 100%;
       height: 100%;
+      height: 100dvh;
       overflow: hidden;
       background: var(--bg);
       color: var(--text);
@@ -37,6 +38,7 @@
       position: relative;
       width: 100%;
       height: 100%;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
     }
@@ -59,9 +61,9 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-end;
+      justify-content: space-between;
       overflow: hidden;
-      transition: opacity 0.3s ease, visibility 0.3s ease;
+      transition: opacity 0.28s ease, visibility 0.28s ease;
     }
 
     .loading-overlay.hidden {
@@ -87,6 +89,50 @@
       display: none;
     }
 
+    .splash-fallback-brand {
+      position: relative;
+      z-index: 2;
+      margin-top: max(44px, env(safe-area-inset-top, 24px));
+      padding: 18px 22px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      backdrop-filter: blur(6px);
+      text-align: center;
+      max-width: min(88vw, 340px);
+      display: none;
+    }
+
+    .loading-overlay.use-fallback .splash-fallback-brand {
+      display: block;
+    }
+
+    .splash-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      background: rgba(254, 243, 199, 0.24);
+      color: #FEF3C7;
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+    }
+
+    .splash-title {
+      margin: 0;
+      font-size: clamp(18px, 4.8vw, 22px);
+      font-weight: 800;
+      line-height: 1.25;
+    }
+
+    .splash-org {
+      margin: 6px 0 0;
+      font-size: 12px;
+      opacity: 0.92;
+      line-height: 1.4;
+    }
+
     @media (orientation: landscape) and (min-width: 640px) {
       .splash-bg-img {
         object-fit: contain;
@@ -98,8 +144,9 @@
       position: relative;
       z-index: 2;
       width: 100%;
+      margin-top: auto;
       padding: 28px 20px calc(22px + env(safe-area-inset-bottom, 0px));
-      background: linear-gradient(to top, rgba(3, 105, 161, 0.88) 0%, rgba(2, 132, 199, 0.55) 65%, rgba(2, 132, 199, 0) 100%);
+      background: linear-gradient(to top, rgba(3, 105, 161, 0.92) 0%, rgba(2, 132, 199, 0.62) 65%, rgba(2, 132, 199, 0) 100%);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -121,21 +168,21 @@
     }
 
     .loading-sub {
-      font-size: 12px;
+      font-size: 12.5px;
       font-weight: 700;
       color: #FFFFFF;
       text-shadow: 0 1px 6px rgba(15, 23, 42, 0.45);
       margin: 0;
-      max-width: 320px;
+      max-width: min(88vw, 340px);
       line-height: 1.4;
     }
 
     .btn-retry {
       margin-top: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.7);
-      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      background: rgba(15, 23, 42, 0.5);
       color: #FFFFFF;
-      padding: 9px 16px;
+      padding: 9px 18px;
       border-radius: 10px;
       font-size: 12px;
       font-weight: 700;
@@ -144,12 +191,12 @@
     }
 
     .btn-retry:active {
-      background: rgba(15, 23, 42, 0.7);
+      background: rgba(15, 23, 42, 0.75);
     }
 
     .wrapper-toast {
       position: fixed;
-      bottom: 20px;
+      bottom: calc(20px + env(safe-area-inset-bottom, 0px));
       left: 50%;
       transform: translateX(-50%) translateY(16px);
       z-index: 40;
@@ -182,6 +229,12 @@
         alt="SIBIHA — Sistem Informasi Bayi dan HBIG"
         class="splash-bg-img"
       />
+
+      <div class="splash-fallback-brand">
+        <div class="splash-badge">HBIG MONITORING</div>
+        <h1 class="splash-title">SIBIHA</h1>
+        <p class="splash-org">Sistem Informasi Bayi &amp; HBIG<br />UPTD Puskesmas Kaliabang Tengah</p>
+      </div>
 
       <div class="splash-bottom-bar">
         <div id="splashSpinner" class="spinner" aria-hidden="true"></div>
@@ -226,15 +279,23 @@
     const pendingChunkDownloads = {};
 
     if (splashImgEl) {
+      splashImgEl.addEventListener('load', () => {
+        splashImgEl.classList.remove('broken');
+        if (overlayEl) overlayEl.classList.remove('use-fallback');
+      });
       splashImgEl.addEventListener('error', () => {
         splashImgEl.classList.add('broken');
+        if (overlayEl) overlayEl.classList.add('use-fallback');
       });
     }
 
     function applySplashConfig() {
       if (splashImgEl && SPLASH_CONFIG.imageUrl) {
         splashImgEl.classList.remove('broken');
+        if (overlayEl) overlayEl.classList.remove('use-fallback');
         splashImgEl.src = SPLASH_CONFIG.imageUrl;
+      } else if (overlayEl) {
+        overlayEl.classList.add('use-fallback');
       }
       if (loadingSubEl && SPLASH_CONFIG.loadingText) {
         loadingSubEl.textContent = SPLASH_CONFIG.loadingText;
@@ -307,7 +368,7 @@
       if (loadTimeoutId) clearTimeout(loadTimeoutId);
       loadTimeoutId = setTimeout(() => {
         showLoadingError('Waktu muat habis. Coba muat ulang atau periksa koneksi internet.');
-      }, 20000);
+      }, 22000);
 
       iframeEl.src = forceFresh ? buildTargetUrl() : APPS_SCRIPT_EXEC_URL;
     }
@@ -321,52 +382,84 @@
     });
 
     function getAndroidBridge() {
-      return window.HBIGAndroid ||
-        (window.parent && window.parent.HBIGAndroid) ||
-        (window.top && window.top.HBIGAndroid) ||
-        null;
+      const candidates = [
+        window.HBIGAndroid,
+        window.AndroidBridge,
+        window.parent && window.parent.HBIGAndroid,
+        window.parent && window.parent.AndroidBridge,
+        window.top && window.top.HBIGAndroid,
+        window.top && window.top.AndroidBridge
+      ];
+      for (let i = 0; i < candidates.length; i++) {
+        const c = candidates[i];
+        if (c && (typeof c.saveBase64File === 'function' || typeof c.downloadBase64File === 'function')) {
+          return c;
+        }
+      }
+      return null;
+    }
+
+    function triggerBrowserBlobDownload(cleanB64, fileName, mimeType) {
+      const byteCharacters = atob(cleanB64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: mimeType });
+      const blobUrl = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+
+      setTimeout(() => {
+        if (link.parentNode) link.parentNode.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }, 2500);
     }
 
     function forwardFileDownloadToAndroid(payload) {
       if (!payload || typeof payload !== 'object') return false;
       const rawBase64 = payload.base64Data || payload.base64 || payload.data || '';
-      if (!rawBase64) return false;
+      if (!rawBase64) {
+        showWrapperToast('Data file kosong, gagal mengunduh.');
+        return false;
+      }
 
       const fileName = String(payload.fileName || payload.filename || 'Data_Penerima_HBIG_dan_Pemantauan.xlsx');
-      const mimeType = String(payload.mimeType || payload.mime || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      const base64Data = String(rawBase64).replace(/\s+/g, '');
+      const mimeType = String(
+        payload.mimeType ||
+        payload.mime ||
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      const normalized = String(rawBase64).replace(/\s+/g, '');
+      const cleanB64 = normalized.indexOf(',') >= 0 ? normalized.split(',')[1] : normalized;
 
       const bridge = getAndroidBridge();
-      if (bridge && typeof bridge.saveBase64File === 'function') {
+      if (bridge) {
         try {
-          bridge.saveBase64File(base64Data, fileName, mimeType);
+          if (typeof bridge.saveBase64File === 'function') {
+            bridge.saveBase64File(cleanB64, fileName, mimeType);
+          } else if (typeof bridge.downloadBase64File === 'function') {
+            bridge.downloadBase64File(cleanB64, fileName, mimeType);
+          }
+          showWrapperToast('Menyimpan file ke perangkat: ' + fileName);
           return true;
         } catch (err) {
-          showWrapperToast('Gagal memanggil bridge Android: ' + (err && err.message ? err.message : ''));
+          showWrapperToast('Bridge Android gagal, mencoba unduh standar...');
         }
       }
 
-      if (window.AndroidBridge && typeof window.AndroidBridge.downloadBase64File === 'function') {
-        try {
-          window.AndroidBridge.downloadBase64File(base64Data, fileName, mimeType);
-          return true;
-        } catch (_err) {}
-      }
-
       try {
-        const cleanB64 = base64Data.indexOf(',') >= 0 ? base64Data.split(',')[1] : base64Data;
-        const dataUrl = `data:${mimeType};base64,${cleanB64}`;
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = fileName;
-        link.rel = 'noopener';
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => {
-          if (link.parentNode) link.parentNode.removeChild(link);
-        }, 1200);
+        triggerBrowserBlobDownload(cleanB64, fileName, mimeType);
+        showWrapperToast('Mengunduh file: ' + fileName);
         return true;
       } catch (_err) {
+        showWrapperToast('Gagal mengunduh file di perangkat ini.');
         return false;
       }
     }
@@ -382,7 +475,9 @@
       }
       if (!data || typeof data !== 'object') return;
 
-      if (data.type === 'HBIG_DOWNLOAD_BASE64') {
+      if (data.type === 'HBIG_APP_READY') {
+        hideLoadingOverlay();
+      } else if (data.type === 'HBIG_DOWNLOAD_BASE64') {
         forwardFileDownloadToAndroid(data);
       } else if (data.type === 'HBIG_DOWNLOAD_CHUNK') {
         const id = data.uploadId;
@@ -428,3 +523,127 @@
   </script>
 </body>
 </html>
+```[cite: 4]
+
+---
+
+### 2. Bagian Sinkronisasi Download di `index.html` (Apps Script)
+
+Ganti fungsi `downloadExcel()` (dan tambahkan sinyal `HBIG_APP_READY` saat aplikasi siap) pada `index.html` di proyek Apps Script Anda dengan kode berikut:
+
+```javascript
+    function sendExcelToParentWrapper_(base64Str, fileName, mimeType) {
+      const targetParent = (window.parent && window.parent !== window) ? window.parent : null;
+      if (!targetParent) return false;
+
+      const chunkSize = 120000;
+      try {
+        if (base64Str.length <= chunkSize) {
+          targetParent.postMessage({
+            type: 'HBIG_DOWNLOAD_BASE64',
+            base64Data: base64Str,
+            fileName: fileName,
+            mimeType: mimeType
+          }, '*');
+        } else {
+          const uploadId = 'DL_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+          const total = Math.ceil(base64Str.length / chunkSize);
+          for (let i = 0; i < total; i++) {
+            const part = base64Str.slice(i * chunkSize, (i + 1) * chunkSize);
+            targetParent.postMessage({
+              type: 'HBIG_DOWNLOAD_CHUNK',
+              uploadId: uploadId,
+              index: i,
+              total: total,
+              chunk: part,
+              fileName: fileName,
+              mimeType: mimeType
+            }, '*');
+          }
+        }
+        return true;
+      } catch (_err) {
+        return false;
+      }
+    }
+
+    function downloadExcel() {
+      if (typeof XLSX === 'undefined') {
+        showToast('Library Excel belum termuat. Periksa koneksi internet.');
+        return;
+      }
+
+      const wb = XLSX.utils.book_new();
+      const hbigExport = (APP_DATA.penerimaHbig || []).map((r, i) => ({
+        'NO': r.no || (i + 1),
+        'TGL. PERIKSA TRIPLE ELIMINASI': r.tglPeriksaTripleEliminasi || '',
+        'NAMA IBU': r.namaIbu || '',
+        'NIK': r.nik || '',
+        'TLP': r.tlp || '',
+        'ALAMAT': r.alamat || '',
+        'RT': r.rt || '',
+        'RW': r.rw || '',
+        'HPHT': r.hpht || '',
+        'TP': r.tp || '',
+        'TEMPAT BERSALIN': r.tempatBersalin || '',
+        'TGL. BERSALIN': r.tglBersalin || '',
+        'TGL. SUNTIK VAKSIN HBIG': r.tglSuntikHbig || '',
+        'FOTO': r.fotoRaw || r.foto || '',
+        'URAIAN': r.uraian || '',
+        'DIUBAH OLEH': r.diubahOleh || '',
+        'WAKTU UBAH': r.waktuUbah || ''
+      }));
+
+      const bayiExport = (APP_DATA.pemantauanBayi || []).map((r, i) => ({
+        'NO': r.no || (i + 1),
+        'NAMA ANAK': r.namaAnak || '',
+        'NAMA IBU': r.namaIbu || '',
+        'NIK BAYI': r.nikBayi || '',
+        'ALAMAT': r.alamat || '',
+        'RT': r.rt || '',
+        'RW': r.rw || '',
+        'TGL. LAHIR BAYI': r.tglLahirBayi || '',
+        'TGL. SUNTIK VAKSIN HBIG': r.tglSuntikHbig || '',
+        'TGL. PEMERIKSAAN HBSAG': r.tglPeriksaHbsag || '',
+        'HASIL HBSAG': r.hasilHbsag || '',
+        'TGL. PEMERIKSAAN ANTI HBS': r.tglPeriksaAntiHbs || '',
+        'HASIL ANTI HBS': r.hasilAntiHbs || '',
+        'FOTO': r.fotoRaw || r.foto || '',
+        'URAIAN': r.uraian || '',
+        'DIUBAH OLEH': r.diubahOleh || '',
+        'WAKTU UBAH': r.waktuUbah || ''
+      }));
+
+      const wsHbig = XLSX.utils.json_to_sheet(hbigExport);
+      const wsBayi = XLSX.utils.json_to_sheet(bayiExport);
+      XLSX.utils.book_append_sheet(wb, wsHbig, 'Penerima HBIG');
+      XLSX.utils.book_append_sheet(wb, wsBayi, 'Pemantauan Bayi 9-18 Bln');
+
+      const tgl = new Date().toISOString().slice(0, 10);
+      const fileName = `Data_Penerima_HBIG_dan_Pemantau_${tgl}.xlsx`;
+      const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+      const sentToWrapper = sendExcelToParentWrapper_(
+        XLSX.write(wb, { bookType: 'xlsx', type: 'base64' }),
+        fileName,
+        mimeType
+      );
+
+      if (sentToWrapper) {
+        showToast('Mengirim file Excel ke perangkat...');
+        return;
+      }
+
+      XLSX.writeFile(wb, fileName);
+      showToast('File Excel (.xlsx) berhasil diunduh');
+    }
+```[cite: 2]
+
+Dan di dalam `initApp()` pada `index.html` Apps Script, tambahkan notifikasi siap di bagian akhir `initApp()`:
+
+```javascript
+      if (window.parent && window.parent !== window) {
+        try {
+          window.parent.postMessage({ type: 'HBIG_APP_READY' }, '*');
+        } catch (_e) {}
+      }

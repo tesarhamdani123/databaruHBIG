@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>HBIG MONITORING — WebView Wrapper</title>
+  <title>SIBIHA — Sistem Informasi Bayi dan HBIG</title>
   <style>
     :root {
       --primary: #0284C7;
@@ -50,19 +50,19 @@
       background: var(--bg);
     }
 
+    /* SPLASH SCREEN FULLSCREEN GAMBAR */
     .loading-overlay {
       position: fixed;
       inset: 0;
       z-index: 30;
-      background: linear-gradient(155deg, #0369A1 0%, #0284C7 60%, #38BDF8 100%);
+      background: linear-gradient(180deg, #0369A1 0%, #0284C7 55%, #075985 100%);
       color: #FFFFFF;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 24px;
-      text-align: center;
-      transition: opacity 0.25s ease, visibility 0.25s ease;
+      justify-content: flex-end;
+      overflow: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
     }
 
     .loading-overlay.hidden {
@@ -71,47 +71,77 @@
       pointer-events: none;
     }
 
+    .splash-bg-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+      z-index: 1;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    @media (orientation: landscape) and (min-width: 640px) {
+      .splash-bg-img {
+        object-fit: contain;
+        background: radial-gradient(circle at center, #38BDF8 0%, #0284C7 65%, #0369A1 100%);
+      }
+    }
+
+    .splash-bottom-bar {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      padding: 28px 20px calc(22px + env(safe-area-inset-bottom, 0px));
+      background: linear-gradient(to top, rgba(3, 105, 161, 0.88) 0%, rgba(2, 132, 199, 0.55) 65%, rgba(2, 132, 199, 0) 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
     .spinner {
-      width: 42px;
-      height: 42px;
-      border: 4px solid rgba(255, 255, 255, 0.28);
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(255, 255, 255, 0.32);
       border-top-color: #FFFFFF;
       border-radius: 50%;
       animation: spin 0.85s linear infinite;
-      margin-bottom: 14px;
+      margin-bottom: 8px;
     }
 
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
 
-    .loading-title {
-      font-size: 16px;
-      font-weight: 800;
-      margin: 0 0 6px;
-    }
-
     .loading-sub {
       font-size: 12px;
-      opacity: 0.92;
-      max-width: 300px;
-      line-height: 1.45;
-      margin: 0 0 16px;
+      font-weight: 700;
+      color: #FFFFFF;
+      text-shadow: 0 1px 6px rgba(15, 23, 42, 0.45);
+      margin: 0;
+      max-width: 320px;
+      line-height: 1.4;
     }
 
     .btn-retry {
-      border: 1px solid rgba(255, 255, 255, 0.55);
-      background: rgba(255, 255, 255, 0.18);
+      margin-top: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      background: rgba(15, 23, 42, 0.45);
       color: #FFFFFF;
       padding: 9px 16px;
       border-radius: 10px;
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
+      backdrop-filter: blur(4px);
     }
 
     .btn-retry:active {
-      background: rgba(255, 255, 255, 0.3);
+      background: rgba(15, 23, 42, 0.7);
     }
 
     .wrapper-toast {
@@ -143,12 +173,20 @@
 <body>
   <div class="wrapper-root">
     <div id="loadingOverlay" class="loading-overlay">
-      <div class="spinner" aria-hidden="true"></div>
-      <div class="loading-title">HBIG MONITORING</div>
-      <p id="loadingSub" class="loading-sub">Menghubungkan ke server aplikasi...</p>
-      <button type="button" id="retryBtn" class="btn-retry" style="display:none;" onclick="reloadIframe(true)">
-        Muat Ulang Aplikasi
-      </button>
+      <img
+        id="splashBgImg"
+        src="./splash_sibiha.png"
+        alt="SIBIHA — Sistem Informasi Bayi dan HBIG"
+        class="splash-bg-img"
+      />
+
+      <div class="splash-bottom-bar">
+        <div id="splashSpinner" class="spinner" aria-hidden="true"></div>
+        <p id="loadingSub" class="loading-sub">Memuat aplikasi SIBIHA...</p>
+        <button type="button" id="retryBtn" class="btn-retry" style="display:none;" onclick="reloadIframe(true)">
+          Muat Ulang Aplikasi
+        </button>
+      </div>
     </div>
 
     <iframe
@@ -162,6 +200,12 @@
   <div id="wrapperToast" class="wrapper-toast"></div>
 
   <script>
+    const SPLASH_CONFIG = {
+      imageUrl: './splash_sibiha.png',
+      loadingText: 'Memuat aplikasi SIBIHA...',
+      minDisplayMs: 500
+    };
+
     const APPS_SCRIPT_EXEC_URL = 'https://script.google.com/macros/s/AKfycbwj5x4wBc-_2RdB6prR3UD8tiHM24Lj5u0xcb6QNc3t60StIcaFCtR0zm7h0_T_XJfQsw/exec';
     const ALLOWED_ORIGINS = [
       'https://script.google.com',
@@ -170,12 +214,25 @@
 
     const iframeEl = document.getElementById('appsScriptFrame');
     const overlayEl = document.getElementById('loadingOverlay');
+    const splashImgEl = document.getElementById('splashBgImg');
     const loadingSubEl = document.getElementById('loadingSub');
     const retryBtnEl = document.getElementById('retryBtn');
+    const spinnerEl = document.getElementById('splashSpinner');
     const toastEl = document.getElementById('wrapperToast');
 
     let loadTimeoutId = null;
+    let hideDelayTimerId = null;
+    let splashShownAt = 0;
     let toastTimeoutId = null;
+
+    function applySplashConfig() {
+      if (splashImgEl && SPLASH_CONFIG.imageUrl) {
+        splashImgEl.src = SPLASH_CONFIG.imageUrl;
+      }
+      if (loadingSubEl && SPLASH_CONFIG.loadingText) {
+        loadingSubEl.textContent = SPLASH_CONFIG.loadingText;
+      }
+    }
 
     function showWrapperToast(msg) {
       if (!toastEl) return;
@@ -192,14 +249,29 @@
         clearTimeout(loadTimeoutId);
         loadTimeoutId = null;
       }
-      if (overlayEl) {
-        overlayEl.classList.add('hidden');
+      if (hideDelayTimerId) {
+        clearTimeout(hideDelayTimerId);
+        hideDelayTimerId = null;
       }
+
+      const elapsed = Date.now() - splashShownAt;
+      const remaining = Math.max(0, (Number(SPLASH_CONFIG.minDisplayMs) || 0) - elapsed);
+
+      hideDelayTimerId = setTimeout(() => {
+        if (overlayEl) {
+          overlayEl.classList.add('hidden');
+        }
+      }, remaining);
     }
 
     function showLoadingError(message) {
+      if (loadTimeoutId) {
+        clearTimeout(loadTimeoutId);
+        loadTimeoutId = null;
+      }
       if (!overlayEl) return;
       overlayEl.classList.remove('hidden');
+      if (spinnerEl) spinnerEl.style.display = 'none';
       if (loadingSubEl) {
         loadingSubEl.textContent = message || 'Koneksi terganggu. Periksa jaringan internet Anda.';
       }
@@ -217,8 +289,12 @@
 
     function reloadIframe(forceFresh) {
       if (!iframeEl) return;
+      splashShownAt = Date.now();
       if (retryBtnEl) retryBtnEl.style.display = 'none';
-      if (loadingSubEl) loadingSubEl.textContent = 'Memuat aplikasi HBIG Monitoring...';
+      if (spinnerEl) spinnerEl.style.display = 'block';
+      if (loadingSubEl) {
+        loadingSubEl.textContent = SPLASH_CONFIG.loadingText || 'Memuat aplikasi...';
+      }
       if (overlayEl) overlayEl.classList.remove('hidden');
 
       if (loadTimeoutId) clearTimeout(loadTimeoutId);
@@ -237,14 +313,12 @@
       showLoadingError('Gagal memuat halaman Apps Script. Coba muat ulang.');
     });
 
-    // Jembatan unduhan file (mis. Excel .xlsx / .csv) dari iframe ke Android WebView
     function forwardFileDownloadToAndroid(payload) {
       if (!payload || !payload.base64Data) return false;
       const fileName = String(payload.fileName || 'Data_Penerima_HBIG_dan_Pemantauan.xlsx');
       const mimeType = String(payload.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       const base64Data = String(payload.base64Data);
 
-      // 1. Jika Android menginjeksikan JavascriptInterface bernama "HBIGAndroid"
       if (window.HBIGAndroid && typeof window.HBIGAndroid.saveBase64File === 'function') {
         try {
           window.HBIGAndroid.saveBase64File(base64Data, fileName, mimeType);
@@ -253,7 +327,6 @@
         } catch (_err) {}
       }
 
-      // 2. Jika Android menginjeksikan JavascriptInterface alternatif bernama "AndroidBridge"
       if (window.AndroidBridge && typeof window.AndroidBridge.downloadBase64File === 'function') {
         try {
           window.AndroidBridge.downloadBase64File(base64Data, fileName, mimeType);
@@ -262,7 +335,6 @@
         } catch (_err) {}
       }
 
-      // 3. Fallback browser/WebView via data URL (lebih kompatibel di beberapa WebView dibanding blob:)
       try {
         const dataUrl = `data:${mimeType};base64,${base64Data}`;
         const link = document.createElement('a');
@@ -303,6 +375,7 @@
     });
 
     window.addEventListener('DOMContentLoaded', () => {
+      applySplashConfig();
       reloadIframe(true);
     });
   </script>

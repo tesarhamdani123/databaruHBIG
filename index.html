@@ -400,7 +400,10 @@
     }
 
     function triggerBrowserBlobDownload(cleanB64, fileName, mimeType) {
-      const normalizedB64 = cleanB64.replace(/[^A-Za-z0-9+/=]/g, '');
+      const normalizedB64 = String(cleanB64 || '').replace(/[^A-Za-z0-9+/=]/g, '');
+      if (!normalizedB64) {
+        throw new Error('Base64 kosong');
+      }
       const byteCharacters = atob(normalizedB64);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {

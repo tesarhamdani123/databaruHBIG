@@ -223,6 +223,7 @@
     let hideDelayTimerId = null;
     let splashShownAt = 0;
     let toastTimeoutId = null;
+    const pendingChunkDownloads = {};
 
     if (splashImgEl) {
       splashImgEl.addEventListener('error', () => {
@@ -383,6 +384,32 @@
 
       if (data.type === 'HBIG_DOWNLOAD_BASE64') {
         forwardFileDownloadToAndroid(data);
+      } else if (data.type === 'HBIG_DOWNLOAD_CHUNK') {
+        const id = data.uploadId;
+        if (!id) return;
+        const total = Math.max(1, Number(data.total) || 1);
+        if (!pendingChunkDownloads[id]) {
+          pendingChunkDownloads[id] = {
+            total: total,
+            parts: new Array(total).fill(''),
+            fileName: data.fileName,
+            mimeType: data.mimeType
+          };
+        }
+        const bucket = pendingChunkDownloads[id];
+        const idx = Number(data.index);
+        if (idx >= 0 && idx < bucket.parts.length) {
+          bucket.parts[idx] = String(data.chunk || '');
+        }
+        if (bucket.parts.every(p => p.length > 0)) {
+          const fullBase64 = bucket.parts.join('');
+          delete pendingChunkDownloads[id];
+          forwardFileDownloadToAndroid({
+            base64Data: fullBase64,
+            fileName: bucket.fileName,
+            mimeType: bucket.mimeType
+          });
+        }
       } else if (data.type === 'HBIG_TOAST' && data.message) {
         showWrapperToast(String(data.message));
       }

@@ -262,7 +262,7 @@
       minDisplayMs: 500
     };
 
-    const APPS_SCRIPT_EXEC_URL = 'https://script.google.com/macros/s/AKfycbxapZK7slIwODyPyONIMF-WiXLwAfLU2dF6IgKA6eF_UngeMAibvb2ekn3-NexOPQ2uQA/exec';
+    const APPS_SCRIPT_EXEC_URL = 'https://script.google.com/macros/s/AKfycbx-B3a8WH4sPyqSOhMDVyLRFfvi_zjg_UIOMteixDe72cL9iS9stJ-cRyHSdGIyaAtKrg/exec';
 
     const iframeEl = document.getElementById('appsScriptFrame');
     const overlayEl = document.getElementById('loadingOverlay');
@@ -381,14 +381,10 @@
       showLoadingError('Gagal memuat halaman Apps Script. Coba muat ulang.');
     });
 
-    function getAndroidBridge() {
+   function getAndroidBridge() {
       const candidates = [
         window.HBIGAndroid,
-        window.AndroidBridge,
-        window.parent && window.parent.HBIGAndroid,
-        window.parent && window.parent.AndroidBridge,
-        window.top && window.top.HBIGAndroid,
-        window.top && window.top.AndroidBridge
+        window.AndroidBridge
       ];
       for (let i = 0; i < candidates.length; i++) {
         const c = candidates[i];
@@ -397,33 +393,6 @@
         }
       }
       return null;
-    }
-
-    function triggerBrowserBlobDownload(cleanB64, fileName, mimeType) {
-      const normalizedB64 = String(cleanB64 || '').replace(/[^A-Za-z0-9+/=]/g, '');
-      if (!normalizedB64) {
-        throw new Error('Base64 kosong');
-      }
-      const byteCharacters = atob(normalizedB64);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: mimeType });
-      const blobUrl = URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = fileName;
-      link.rel = 'noopener';
-      document.body.appendChild(link);
-      link.click();
-
-      setTimeout(() => {
-        if (link.parentNode) link.parentNode.removeChild(link);
-        URL.revokeObjectURL(blobUrl);
-      }, 2500);
     }
 
     function forwardFileDownloadToAndroid(payload) {
@@ -451,11 +420,13 @@
           } else if (typeof bridge.downloadBase64File === 'function') {
             bridge.downloadBase64File(cleanB64, fileName, mimeType);
           }
-          showWrapperToast('Menyimpan file ke Download: ' + fileName);
+          showWrapperToast('Memproses penyimpanan: ' + fileName);
           return true;
-        } catch (_err) {
-          showWrapperToast('Bridge Android gagal, mencoba unduh standar...');
+        } catch (err) {
+          showWrapperToast('Bridge Android error: ' + (err && err.message ? err.message : 'gagal'));
         }
+      } else {
+        showWrapperToast('Bridge HBIGAndroid tidak ditemukan di WebView.');
       }
 
       try {

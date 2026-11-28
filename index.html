@@ -382,14 +382,19 @@
     });
 
     function getAndroidBridge() {
-      const candidates = [
-        window.HBIGAndroid,
-        window.AndroidBridge
-      ];
-      for (let i = 0; i < candidates.length; i++) {
-        const c = candidates[i];
-        if (c && (typeof c.saveBase64File === 'function' || typeof c.downloadBase64File === 'function')) {
-          return c;
+      const scopes = [window];
+      if (window.parent && window.parent !== window) {
+        scopes.push(window.parent);
+      }
+
+      for (let s = 0; s < scopes.length; s++) {
+        const sc = scopes[s];
+        const candidates = [sc.HBIGAndroid, sc.AndroidBridge];
+        for (let i = 0; i < candidates.length; i++) {
+          const c = candidates[i];
+          if (c && (typeof c.saveBase64File === 'function' || typeof c.downloadBase64File === 'function')) {
+            return c;
+          }
         }
       }
       return null;
@@ -438,7 +443,6 @@
           } else if (typeof bridge.downloadBase64File === 'function') {
             bridge.downloadBase64File(cleanB64, fileName, mimeType);
           }
-          showWrapperToast('Menyimpan ke folder Download: ' + fileName);
           return true;
         } catch (err) {
           showWrapperToast('Bridge Android error: ' + (err && err.message ? err.message : 'gagal'));

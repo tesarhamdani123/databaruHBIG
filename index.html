@@ -381,7 +381,7 @@
       showLoadingError('Gagal memuat halaman Apps Script. Coba muat ulang.');
     });
 
-   function getAndroidBridge() {
+    function getAndroidBridge() {
       const candidates = [
         window.HBIGAndroid,
         window.AndroidBridge
@@ -395,6 +395,24 @@
       return null;
     }
 
+    function triggerBrowserBlobDownload(cleanBase64, fileName, mimeType) {
+      const binaryStr = atob(cleanBase64);
+      const len = binaryStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
     function forwardFileDownloadToAndroid(payload) {
       if (!payload || typeof payload !== 'object') return false;
       const rawBase64 = payload.base64Data || payload.base64 || payload.data || '';
@@ -403,7 +421,7 @@
         return false;
       }
 
-      const fileName = String(payload.fileName || payload.filename || 'Data_Penerima_HBIG_dan_Pemantauan.xlsx');
+      const fileName = String(payload.fileName || payload.filename || 'Data_Penerima_HBIG_dan_Pemantau.xlsx');
       const mimeType = String(
         payload.mimeType ||
         payload.mime ||
@@ -420,13 +438,11 @@
           } else if (typeof bridge.downloadBase64File === 'function') {
             bridge.downloadBase64File(cleanB64, fileName, mimeType);
           }
-          showWrapperToast('Memproses penyimpanan: ' + fileName);
+          showWrapperToast('Menyimpan ke folder Download: ' + fileName);
           return true;
         } catch (err) {
           showWrapperToast('Bridge Android error: ' + (err && err.message ? err.message : 'gagal'));
         }
-      } else {
-        showWrapperToast('Bridge HBIGAndroid tidak ditemukan di WebView.');
       }
 
       try {
@@ -473,7 +489,7 @@
           pendingChunkDownloads[id] = {
             createdAt: Date.now(),
             total: total,
-            parts: new Array(total).fill(''),
+            parts: new Array(total).fill(null),
             fileName: data.fileName,
             mimeType: data.mimeType
           };
@@ -484,7 +500,7 @@
         if (idx >= 0 && idx < bucket.parts.length) {
           bucket.parts[idx] = String(data.chunk || '');
         }
-        if (bucket.parts.every(p => p.length > 0)) {
+        if (bucket.parts.every(p => p !== null)) {
           const fullBase64 = bucket.parts.join('');
           delete pendingChunkDownloads[id];
           forwardFileDownloadToAndroid({
